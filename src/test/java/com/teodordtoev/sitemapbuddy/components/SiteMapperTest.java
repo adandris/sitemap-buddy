@@ -26,7 +26,9 @@ public class SiteMapperTest {
         Vertx vertx = rule.vertx();
 
         vertx.deployVerticle(new SiteMapper());
-        vertx.eventBus().consumer(Events.CRAWL_PAGE, message -> message.reply(new PageInfo()));
+
+        PageInfo testPageInfo = new PageInfo().setUrl("http://www.example.com");
+        vertx.eventBus().consumer(Events.CRAWL_PAGE, message -> message.reply(testPageInfo));
     }
 
     @Test
@@ -36,7 +38,7 @@ public class SiteMapperTest {
         Async async = context.async();
         vertx.eventBus().send(Events.INITIAL_PAGE, "http://www.example.com", event -> {
             if (event.succeeded()) {
-                context.assertEquals("{}", event.result().body().toString());
+                context.assertEquals("[{\"url\":\"http://www.example.com\"}]", event.result().body().toString());
 
                 async.complete();
             } else {
