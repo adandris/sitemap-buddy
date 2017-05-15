@@ -34,8 +34,10 @@ public class PageCrawlerTest {
         vertx.eventBus().send(Events.CRAWL_PAGE, "http://www.example.com", event -> {
             if (event.succeeded()) {
                 JsonObject result = new JsonObject(event.result().body().toString());
+
                 context.assertEquals("http://www.example.com", result.getString("url"));
                 context.assertNotNull(result.getString("lastModified"));
+                context.assertEquals(0, result.getJsonArray("children").size());
 
                 async.complete();
             } else {
