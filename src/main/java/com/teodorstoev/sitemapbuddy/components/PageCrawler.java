@@ -3,6 +3,7 @@ package com.teodorstoev.sitemapbuddy.components;
 import com.teodorstoev.sitemapbuddy.domain.Events;
 import com.teodorstoev.sitemapbuddy.domain.PageInfo;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
@@ -37,33 +38,41 @@ public class PageCrawler extends AbstractVerticle {
                 }, false, event -> {
                     if (event.succeeded()) {
                         Connection.Response response = (Connection.Response) event.result();
-                        LocalDateTime lastModified = LocalDateTime.parse(response.header("Last-Modified"),
-                                DateTimeFormatter.RFC_1123_DATE_TIME);
 
-                        try {
-                            Document document = response.parse();
-
-                            Elements links = document.select("a[href^=" + baseUrl + "]");
-
-                            JsonArray children = links
-                                    .stream()
-                                    .map(element -> element.attr("abs:href"))
-                                    .collect(JsonArray::new, JsonArray::add, JsonArray::add);
-
-                            PageInfo pageInfo = new PageInfo()
-                                    .setUrl(message.body().toString())
-                                    .setLastModified(lastModified.toString())
-                                    .setChildren(children);
-
-                            message.reply(pageInfo);
-                        } catch (IOException e) {
-                            message.fail(1, e.getMessage());
-                        }
+                        parseResponseAndReply(message, baseUrl, response);
                     }
                 });
             } catch (URISyntaxException e) {
                 e.printStackTrace();
             }
         });
+    }
+
+    private void parseResponseAndReply(Message<Object> message, String baseUrl, Connection.Response response) {
+        try {
+            Document document = response.parse();
+
+            Elements links = document.select("a[href^=" + baseUrl + "]");
+
+            JsonArray children = links
+                    .stream()
+                    .map(element -> element.attr("abs:href"))
+                    .collect(JsonArray::new, JsonArray::add, JsonArray::add);
+
+            PageInfo pageInfo = new PageInfo()
+                    .setUrl(message.body().toString())
+                    .setChildren(children);
+
+            String lastModifiedHeader = response.header("Last-Modified");
+            if (lastModifiedHeader != null) {
+                LocalDateTime lastModified = LocalDateTime.parse(lastModifiedHeader, DateTimeFormatter.RFC_1123_DATE_TIME);
+
+                pageInfo.setLastModified(lastModified.toString());
+            }
+
+            message.reply(pageInfo);
+        } catch (IOException e) {
+            message.fail(1, e.getMessage());
+        }
     }
 }

@@ -1,4 +1,4 @@
-package com.teodordtoev.sitemapbuddy.components;
+package com.teodorstoev.sitemapbuddy.components;
 
 import com.teodorstoev.sitemapbuddy.components.PageCrawler;
 import com.teodorstoev.sitemapbuddy.domain.Events;
