@@ -17,6 +17,8 @@ public class PageInfo extends JsonObject {
 
     private static final String HITS = "hits";
 
+    private static final String PRIORITY = "priority";
+
     private static final String CHILDREN = "children";
 
     public PageInfo() {
@@ -43,6 +45,16 @@ public class PageInfo extends JsonObject {
 
     public PageInfo setLastModified(final String lastModified) {
         put(LAST_MODIFIED, lastModified);
+        return this;
+    }
+
+    @JacksonXmlProperty(localName = "priority", namespace = "http://www.sitemaps.org/schemas/sitemap/0.9")
+    public double getPriority() {
+        return getDouble(PRIORITY);
+    }
+
+    public PageInfo setPriority(double priority) {
+        put(PRIORITY, priority);
         return this;
     }
 

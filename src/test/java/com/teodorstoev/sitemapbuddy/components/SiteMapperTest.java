@@ -1,6 +1,5 @@
 package com.teodorstoev.sitemapbuddy.components;
 
-import com.teodorstoev.sitemapbuddy.components.SiteMapper;
 import com.teodorstoev.sitemapbuddy.domain.Events;
 import com.teodorstoev.sitemapbuddy.domain.PageInfo;
 import io.vertx.core.Vertx;
@@ -38,7 +37,7 @@ public class SiteMapperTest {
         Async async = context.async();
         vertx.eventBus().send(Events.INITIAL_PAGE, "http://www.example.com", event -> {
             if (event.succeeded()) {
-                context.assertEquals("[{\"url\":\"http://www.example.com\"}]", event.result().body().toString());
+                context.assertEquals("[{\"url\":\"http://www.example.com\",\"hits\":1,\"priority\":1.0}]", event.result().body().toString());
 
                 async.complete();
             } else {

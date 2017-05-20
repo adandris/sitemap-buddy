@@ -1,6 +1,5 @@
 package com.teodorstoev.sitemapbuddy.components;
 
-import com.teodorstoev.sitemapbuddy.components.PageCrawler;
 import com.teodorstoev.sitemapbuddy.domain.Events;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
@@ -31,13 +30,13 @@ public class PageCrawlerTest {
         Vertx vertx = rule.vertx();
 
         Async async = context.async();
-        vertx.eventBus().send(Events.CRAWL_PAGE, "http://www.example.com", event -> {
+        vertx.eventBus().send(Events.CRAWL_PAGE, "https://www.teodorstoev.com", event -> {
             if (event.succeeded()) {
                 JsonObject result = new JsonObject(event.result().body().toString());
 
-                context.assertEquals("http://www.example.com", result.getString("url"));
+                context.assertEquals("https://www.teodorstoev.com", result.getString("url"));
                 context.assertNotNull(result.getString("lastModified"));
-                context.assertEquals(0, result.getJsonArray("children").size());
+                context.assertEquals(11, result.getJsonArray("children").size());
 
                 async.complete();
             } else {

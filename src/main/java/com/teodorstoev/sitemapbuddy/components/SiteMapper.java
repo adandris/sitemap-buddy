@@ -18,17 +18,24 @@ public class SiteMapper extends AbstractVerticle {
 
     private Map<String, PageInfo> pages = new HashMap<>();
 
+    private int totalHits;
+
     @Override
     public void start() {
         vertx.eventBus().consumer(Events.INITIAL_PAGE, message -> {
             urlsToCrawl.add(message.body().toString());
 
-            crawl(() -> message.reply(new JsonArray(new ArrayList<>(pages.values()))));
+            crawl(() -> {
+                pages.values().forEach(page -> page.setPriority((double)page.getHits() / totalHits));
+                message.reply(new JsonArray(new ArrayList<>(pages.values())));
+            });
         });
     }
 
     private void crawl(Runnable callback) {
         if (urlsToCrawl.size() > 0) {
+            System.out.println("Crawling " + urlsToCrawl.size() + " urls...");
+
             List<Future> futures = new LinkedList<>();
 
             urlsToCrawl.forEach(url -> {
@@ -43,13 +50,15 @@ public class SiteMapper extends AbstractVerticle {
                 for (int i = 0; i < results.size(); i++) {
                     if (results.succeeded(i)) {
                         Message<PageInfo> message = results.resultAt(i);
-                        PageInfo pageInfo = new PageInfo(message.body());
+                        PageInfo pageInfo = new PageInfo(message.body()).setHits(1);
+                        totalHits++;
 
                         pages.put(pageInfo.getUrl(), pageInfo);
 
                         pageInfo.getChildren().forEach(childUrl -> {
                             if (pages.containsKey(childUrl)) {
                                 pages.get(childUrl).setHits(pages.get(childUrl).getHits() + 1);
+                                totalHits++;
                             } else {
                                 urlsToCrawl.add(childUrl);
                             }

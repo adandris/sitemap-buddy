@@ -15,6 +15,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 /**
  * Created by adandris on 10.05.17.
@@ -52,11 +53,12 @@ public class PageCrawler extends AbstractVerticle {
         try {
             Document document = response.parse();
 
-            Elements links = document.select("a[href^=" + baseUrl + "]");
+            Elements links = document.select("a");
 
             JsonArray children = links
                     .stream()
-                    .map(element -> element.attr("abs:href"))
+                    .map(element -> element.absUrl("href"))
+                    .filter(href -> href.matches("https?://" + baseUrl + ".*"))
                     .collect(JsonArray::new, JsonArray::add, JsonArray::add);
 
             PageInfo pageInfo = new PageInfo()
@@ -65,9 +67,13 @@ public class PageCrawler extends AbstractVerticle {
 
             String lastModifiedHeader = response.header("Last-Modified");
             if (lastModifiedHeader != null) {
-                LocalDateTime lastModified = LocalDateTime.parse(lastModifiedHeader, DateTimeFormatter.RFC_1123_DATE_TIME);
+                try {
+                    LocalDateTime lastModified = LocalDateTime.parse(lastModifiedHeader, DateTimeFormatter.RFC_1123_DATE_TIME);
 
-                pageInfo.setLastModified(lastModified.toString());
+                    pageInfo.setLastModified(lastModified.toString());
+                } catch (DateTimeParseException e) {
+                    System.out.println("Failed to parse date '" + lastModifiedHeader + "'");
+                }
             }
 
             message.reply(pageInfo);
