@@ -1,23 +1,25 @@
 package com.teodorstoev.sitemapbuddy.domain;
 
-import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlElementWrapper;
-import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlProperty;
-import com.fasterxml.jackson.dataformat.xml.annotation.JacksonXmlRootElement;
+import javax.xml.bind.annotation.XmlAccessType;
+import javax.xml.bind.annotation.XmlAccessorType;
+import javax.xml.bind.annotation.XmlElement;
+import javax.xml.bind.annotation.XmlRootElement;
+import java.util.List;
 
 /**
  * Created by adandris on 14.05.17.
  */
-@JacksonXmlRootElement(localName = "urlset", namespace = "http://www.sitemaps.org/schemas/sitemap/0.9")
+@XmlRootElement(name = "urlset")
+@XmlAccessorType(XmlAccessType.FIELD)
 public class OutputXml {
-    @JacksonXmlProperty(localName = "url", namespace = "http://www.sitemaps.org/schemas/sitemap/0.9")
-    @JacksonXmlElementWrapper(useWrapping = false)
-    private Object[] urlSet;
+    @XmlElement(name = "url")
+    private List<PageInfo> urlSet;
 
-    public Object[] getUrlSet() {
+    public List<PageInfo> getUrlSet() {
         return urlSet;
     }
 
-    public void setUrlSet(Object[] urlSet) {
+    public void setUrlSet(List<PageInfo> urlSet) {
         this.urlSet = urlSet;
     }
 }

@@ -1,7 +1,5 @@
 package com.teodorstoev.sitemapbuddy;
 
-import com.fasterxml.jackson.databind.MapperFeature;
-import com.fasterxml.jackson.dataformat.xml.XmlMapper;
 import com.teodorstoev.sitemapbuddy.components.PageCrawler;
 import com.teodorstoev.sitemapbuddy.components.SiteMapper;
 import com.teodorstoev.sitemapbuddy.domain.Events;
@@ -14,8 +12,10 @@ import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.commons.cli.*;
 
+import javax.xml.bind.JAXBContext;
+import javax.xml.bind.JAXBException;
+import javax.xml.bind.Marshaller;
 import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -47,7 +47,7 @@ public class EntryPoint {
             urlSet.sort(Comparator.comparingInt(PageInfo::getHits).reversed());
 
             OutputXml outputXml = new OutputXml();
-            outputXml.setUrlSet(urlSet.toArray());
+            outputXml.setUrlSet(urlSet);
 
             mapToXml(outputXml, path, vertx::close);
         }));
@@ -91,13 +91,17 @@ public class EntryPoint {
     }
 
     private static void mapToXml(OutputXml outputXml, String path, Runnable callback) {
-        XmlMapper mapper = new XmlMapper();
-        mapper.disable(MapperFeature.AUTO_DETECT_GETTERS);
-        mapper.disable(MapperFeature.AUTO_DETECT_IS_GETTERS);
         try {
-            mapper.writerWithDefaultPrettyPrinter().writeValue(new File(path), outputXml);
+            JAXBContext context = JAXBContext.newInstance(OutputXml.class);
+
+            Marshaller marshaller = context.createMarshaller();
+            marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
+            marshaller.setProperty(Marshaller.JAXB_SCHEMA_LOCATION,
+                    "http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd");
+            marshaller.marshal(outputXml, new File(path));
+
             callback.run();
-        } catch (IOException e) {
+        } catch (JAXBException e) {
             e.printStackTrace();
         }
     }
