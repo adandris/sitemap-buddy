@@ -14,8 +14,6 @@ import java.util.*;
  * Created by adandris on 10.05.17.
  */
 public class SiteMapper extends AbstractVerticle {
-    private Queue<String> urlsToCrawl = new LinkedList<>();
-
     private Map<String, PageInfo> pages = new HashMap<>();
 
     private int totalHits;
@@ -23,19 +21,18 @@ public class SiteMapper extends AbstractVerticle {
     @Override
     public void start() {
         vertx.eventBus().consumer(Events.INITIAL_PAGE, message -> {
+            List<String> urlsToCrawl = new LinkedList<>();
             urlsToCrawl.add(message.body().toString());
 
-            crawl(() -> {
-                pages.values().forEach(page -> page.setPriority((double)page.getHits() / totalHits));
+            crawl(urlsToCrawl, () -> {
+                pages.values().forEach(page -> page.setPriority((double) page.getHits() / totalHits));
                 message.reply(new JsonArray(new ArrayList<>(pages.values())));
             });
         });
     }
 
-    private void crawl(Runnable callback) {
+    private void crawl(List<String> urlsToCrawl, Runnable callback) {
         if (urlsToCrawl.size() > 0) {
-            System.out.println("Crawling " + urlsToCrawl.size() + " urls...");
-
             List<Future> futures = new LinkedList<>();
 
             urlsToCrawl.forEach(url -> {
@@ -43,7 +40,6 @@ public class SiteMapper extends AbstractVerticle {
                 vertx.eventBus().send(Events.CRAWL_PAGE, url, future.completer());
                 futures.add(future);
             });
-            urlsToCrawl.clear();
 
             CompositeFuture.join(futures).setHandler(futureEvent -> {
                 CompositeFuture results = futureEvent.result();
@@ -55,20 +51,28 @@ public class SiteMapper extends AbstractVerticle {
 
                         pages.put(pageInfo.getUrl(), pageInfo);
 
-                        pageInfo.getChildren().forEach(childUrl -> {
-                            if (pages.containsKey(childUrl)) {
-                                pages.get(childUrl).setHits(pages.get(childUrl).getHits() + 1);
-                                totalHits++;
-                            } else {
-                                urlsToCrawl.add(childUrl);
-                            }
-                        });
+                        crawlChildren(pageInfo, callback);
                     }
                 }
-                crawl(callback);
             });
         } else {
             callback.run();
         }
+    }
+
+    private void crawlChildren(PageInfo pageInfo, Runnable callback) {
+        List<String> childrenToCrawl = new LinkedList<>();
+
+        pageInfo.getChildren().forEach(childUrl -> {
+            if (pages.containsKey(childUrl)) {
+                PageInfo childPage = pages.get(childUrl);
+                childPage.setHits(childPage.getHits() + 1);
+                totalHits++;
+            } else {
+                childrenToCrawl.add(childUrl);
+            }
+        });
+
+        crawl(childrenToCrawl, callback);
     }
 }

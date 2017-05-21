@@ -58,6 +58,7 @@ public class PageCrawler extends AbstractVerticle {
             JsonArray children = links
                     .stream()
                     .map(element -> element.absUrl("href"))
+                    .distinct()
                     .filter(href -> href.matches("https?://" + baseUrl + ".*"))
                     .collect(JsonArray::new, JsonArray::add, JsonArray::add);
 

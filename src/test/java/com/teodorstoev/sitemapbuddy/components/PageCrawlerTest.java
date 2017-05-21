@@ -36,7 +36,7 @@ public class PageCrawlerTest {
 
                 context.assertEquals("https://www.teodorstoev.com", result.getString("url"));
                 context.assertNotNull(result.getString("lastModified"));
-                context.assertEquals(11, result.getJsonArray("children").size());
+                context.assertEquals(9, result.getJsonArray("children").size());
 
                 async.complete();
             } else {
