@@ -41,8 +41,7 @@ public class EntryPoint {
         String siteUrl = commandLine.getOptionValue(OPTION_URL);
         String path = commandLine.getOptionValue(OPTION_OUTPUT);
 
-        Vertx vertx = Vertx.vertx(
-                new VertxOptions().setWorkerPoolSize(2).setMaxWorkerExecuteTime(TimeUnit.SECONDS.toNanos(15)));
+        Vertx vertx = Vertx.vertx(new VertxOptions().setWorkerPoolSize(2));
 
         deployVerticles(vertx, onDeploy -> createSitemap(vertx, siteUrl, sitemap -> {
             List<PageInfo> urlSet = new ArrayList<>(sitemap.size());
@@ -86,7 +85,8 @@ public class EntryPoint {
     }
 
     private static void createSitemap(Vertx vertx, String siteUrl, Consumer<JsonArray> consumer) {
-        vertx.eventBus().send(Events.MAP_SITE, siteUrl, new DeliveryOptions().setSendTimeout(120000), event -> {
+        vertx.eventBus().send(Events.MAP_SITE, siteUrl,
+                new DeliveryOptions().setSendTimeout(TimeUnit.MINUTES.toMillis(5)), event -> {
             if (event.succeeded()) {
                 JsonArray result = (JsonArray) event.result().body();
                 consumer.accept(result);
