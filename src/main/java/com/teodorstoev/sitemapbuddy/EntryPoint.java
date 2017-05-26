@@ -8,6 +8,8 @@ import com.teodorstoev.sitemapbuddy.domain.PageInfo;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
+import io.vertx.core.VertxOptions;
+import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
 import org.apache.commons.cli.*;
@@ -19,6 +21,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 
 /**
@@ -38,13 +41,14 @@ public class EntryPoint {
         String siteUrl = commandLine.getOptionValue(OPTION_URL);
         String path = commandLine.getOptionValue(OPTION_OUTPUT);
 
-        Vertx vertx = Vertx.vertx();
+        Vertx vertx = Vertx.vertx(
+                new VertxOptions().setWorkerPoolSize(2).setMaxWorkerExecuteTime(TimeUnit.SECONDS.toNanos(15)));
 
         deployVerticles(vertx, onDeploy -> createSitemap(vertx, siteUrl, sitemap -> {
             List<PageInfo> urlSet = new ArrayList<>(sitemap.size());
             sitemap.forEach(o -> urlSet.add(new PageInfo((JsonObject) o)));
 
-            urlSet.sort(Comparator.comparingInt(PageInfo::getHits).reversed());
+            urlSet.sort(Comparator.comparingDouble(PageInfo::getPriority).reversed());
 
             OutputXml outputXml = new OutputXml();
             outputXml.setUrlSet(urlSet);
@@ -82,7 +86,7 @@ public class EntryPoint {
     }
 
     private static void createSitemap(Vertx vertx, String siteUrl, Consumer<JsonArray> consumer) {
-        vertx.eventBus().send(Events.INITIAL_PAGE, siteUrl, event -> {
+        vertx.eventBus().send(Events.MAP_SITE, siteUrl, new DeliveryOptions().setSendTimeout(120000), event -> {
             if (event.succeeded()) {
                 JsonArray result = (JsonArray) event.result().body();
                 consumer.accept(result);

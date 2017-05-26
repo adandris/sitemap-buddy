@@ -35,9 +35,9 @@ public class SiteMapperTest {
         Vertx vertx = rule.vertx();
 
         Async async = context.async();
-        vertx.eventBus().send(Events.INITIAL_PAGE, "http://www.example.com", event -> {
+        vertx.eventBus().send(Events.MAP_SITE, "http://www.example.com", event -> {
             if (event.succeeded()) {
-                context.assertEquals("[{\"url\":\"http://www.example.com\",\"hits\":1,\"priority\":1.0}]", event.result().body().toString());
+                context.assertEquals("[{\"url\":\"http://www.example.com\",\"priority\":1.0}]", event.result().body().toString());
 
                 async.complete();
             } else {

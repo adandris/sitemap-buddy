@@ -3,8 +3,6 @@ package com.teodorstoev.sitemapbuddy.components;
 import com.teodorstoev.sitemapbuddy.domain.Events;
 import com.teodorstoev.sitemapbuddy.domain.PageInfo;
 import io.vertx.core.AbstractVerticle;
-import io.vertx.core.CompositeFuture;
-import io.vertx.core.Future;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 
@@ -16,63 +14,85 @@ import java.util.*;
 public class SiteMapper extends AbstractVerticle {
     private Map<String, PageInfo> pages = new HashMap<>();
 
+    private Map<String, Integer> pageHits = new HashMap<>();
+
+    private Queue<String> urlsToCrawl = new LinkedList<>();
+
+    private Set<String> pendingUrls = new HashSet<>();
+
     private int totalHits;
+
+    private int pagesCrawled;
 
     @Override
     public void start() {
-        vertx.eventBus().consumer(Events.INITIAL_PAGE, message -> {
-            List<String> urlsToCrawl = new LinkedList<>();
+        vertx.eventBus().consumer(Events.MAP_SITE, message -> {
             urlsToCrawl.add(message.body().toString());
 
-            crawl(urlsToCrawl, () -> {
-                pages.values().forEach(page -> page.setPriority((double) page.getHits() / totalHits));
-                message.reply(new JsonArray(new ArrayList<>(pages.values())));
+            crawl();
+
+            vertx.setPeriodic(1000, event -> {
+                System.out.println("Pages crawled: " + pagesCrawled);
+
+                if (urlsToCrawl.peek() == null) {
+                    if (pendingUrls.size() == 0) {
+                        pages.values().forEach(page -> page.setPriority((double) pageHits.get(page.getUrl()) / totalHits));
+                        message.reply(new JsonArray(new ArrayList<>(pages.values())));
+                    }
+                } else {
+                    crawl();
+                }
             });
         });
     }
 
-    private void crawl(List<String> urlsToCrawl, Runnable callback) {
-        if (urlsToCrawl.size() > 0) {
-            List<Future> futures = new LinkedList<>();
+    private void crawl() {
+        while (urlsToCrawl.peek() != null) {
+            String url = urlsToCrawl.remove();
 
-            urlsToCrawl.forEach(url -> {
-                Future<Message<PageInfo>> future = Future.future();
-                vertx.eventBus().send(Events.CRAWL_PAGE, url, future.completer());
-                futures.add(future);
-            });
+            if (url.toLowerCase().endsWith(".jpg") || url.toLowerCase().endsWith(".jpeg")) {
+                continue;
+            }
 
-            CompositeFuture.join(futures).setHandler(futureEvent -> {
-                CompositeFuture results = futureEvent.result();
-                for (int i = 0; i < results.size(); i++) {
-                    if (results.succeeded(i)) {
-                        Message<PageInfo> message = results.resultAt(i);
-                        PageInfo pageInfo = new PageInfo(message.body()).setHits(1);
-                        totalHits++;
+            pendingUrls.add(url);
 
-                        pages.put(pageInfo.getUrl(), pageInfo);
+            vertx.eventBus().<PageInfo>send(Events.CRAWL_PAGE, url, event -> {
+                pendingUrls.remove(url);
 
-                        crawlChildren(pageInfo, callback);
-                    }
+                if (event.succeeded()) {
+                    pagesCrawled++;
+
+                    Message<PageInfo> message = event.result();
+                    PageInfo pageInfo = new PageInfo(message.body());
+
+                    incrementPageHits(url);
+
+                    pages.put(url, pageInfo);
+
+                    crawlChildren(pageInfo);
+                } else {
+                    System.out.println(url + ": " + event.cause().getClass().getCanonicalName());
                 }
             });
-        } else {
-            callback.run();
         }
     }
 
-    private void crawlChildren(PageInfo pageInfo, Runnable callback) {
-        List<String> childrenToCrawl = new LinkedList<>();
-
+    private void crawlChildren(PageInfo pageInfo) {
         pageInfo.getChildren().forEach(childUrl -> {
-            if (pages.containsKey(childUrl)) {
-                PageInfo childPage = pages.get(childUrl);
-                childPage.setHits(childPage.getHits() + 1);
-                totalHits++;
-            } else {
-                childrenToCrawl.add(childUrl);
+            incrementPageHits(childUrl);
+
+            if (!pages.containsKey(childUrl) && !urlsToCrawl.contains(childUrl) && !pendingUrls.contains(childUrl)) {
+                urlsToCrawl.add(childUrl);
             }
         });
+    }
 
-        crawl(childrenToCrawl, callback);
+    private void incrementPageHits(String childUrl) {
+        if (pageHits.containsKey(childUrl)) {
+            pageHits.put(childUrl, pageHits.get(childUrl) + 1);
+        } else {
+            pageHits.put(childUrl, 1);
+        }
+        totalHits++;
     }
 }

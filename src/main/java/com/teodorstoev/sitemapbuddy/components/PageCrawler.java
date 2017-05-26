@@ -3,6 +3,8 @@ package com.teodorstoev.sitemapbuddy.components;
 import com.teodorstoev.sitemapbuddy.domain.Events;
 import com.teodorstoev.sitemapbuddy.domain.PageInfo;
 import io.vertx.core.AbstractVerticle;
+import io.vertx.core.AsyncResult;
+import io.vertx.core.Handler;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
 import org.jsoup.Connection;
@@ -13,6 +15,7 @@ import org.jsoup.select.Elements;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLDecoder;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
@@ -25,28 +28,37 @@ public class PageCrawler extends AbstractVerticle {
     public void start() {
         vertx.eventBus().consumer(Events.CRAWL_PAGE, message -> {
             String urlToCrawl = message.body().toString();
+            System.out.println("Crawling " + urlToCrawl + " ...");
             try {
                 URI uri = new URI(urlToCrawl);
                 String baseUrl = uri.getHost();
 
-                vertx.executeBlocking(event -> {
-                    try {
-                        Connection.Response response = Jsoup.connect(urlToCrawl).execute();
-                        event.complete(response);
-                    } catch (IOException e) {
-                        event.fail(e);
-                    }
-                }, false, event -> {
+                executeRequest(uri, event -> {
                     if (event.succeeded()) {
-                        Connection.Response response = (Connection.Response) event.result();
+                        Connection.Response response = event.result();
 
                         parseResponseAndReply(message, baseUrl, response);
+                    } else {
+                        event.cause().printStackTrace();
+                        message.fail(1, event.cause().getMessage());
                     }
                 });
             } catch (URISyntaxException e) {
                 e.printStackTrace();
             }
         });
+    }
+
+    private void executeRequest(URI uri, Handler<AsyncResult<Connection.Response>> resultHandler) {
+        vertx.executeBlocking(event -> {
+            try {
+                String decodedUrl = URLDecoder.decode(uri.toString(), "UTF-8");
+                Connection.Response response = Jsoup.connect(decodedUrl).execute();
+                event.complete(response);
+            } catch (Exception e) {
+                event.fail(e);
+            }
+        }, false, resultHandler);
     }
 
     private void parseResponseAndReply(Message<Object> message, String baseUrl, Connection.Response response) {
@@ -79,6 +91,7 @@ public class PageCrawler extends AbstractVerticle {
 
             message.reply(pageInfo);
         } catch (IOException e) {
+            System.out.println("Failed to parse page...");
             message.fail(1, e.getMessage());
         }
     }

@@ -18,8 +18,6 @@ public class PageInfo extends JsonObject {
 
     private static final String LAST_MODIFIED = "lastModified";
 
-    private static final String HITS = "hits";
-
     private static final String PRIORITY = "priority";
 
     private static final String CHILDREN = "children";
@@ -52,21 +50,16 @@ public class PageInfo extends JsonObject {
     }
 
     @XmlElement(name = "priority")
-    public double getPriority() {
+    public String getFormattedPriority(){
+        return String.format("%.3f", getDouble(PRIORITY));
+    }
+
+    public Double getPriority() {
         return getDouble(PRIORITY);
     }
 
     public PageInfo setPriority(double priority) {
         put(PRIORITY, priority);
-        return this;
-    }
-
-    public int getHits() {
-        return getInteger(HITS);
-    }
-
-    public PageInfo setHits(int hits) {
-        put(HITS, hits);
         return this;
     }
 
