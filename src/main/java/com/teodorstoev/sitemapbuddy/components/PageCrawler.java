@@ -22,6 +22,8 @@ import java.time.format.DateTimeParseException;
  * Created by adandris on 10.05.17.
  */
 public class PageCrawler extends AbstractVerticle {
+    private static final int MAX_CONCURRENT_REQUESTS = 5;
+
     private int concurrentRequestCount;
 
     @Override
@@ -39,7 +41,7 @@ public class PageCrawler extends AbstractVerticle {
     }
 
     private void executeNowOrLater(Message<Object> message, URI uri) {
-        if(concurrentRequestCount < 10) {
+        if (concurrentRequestCount < MAX_CONCURRENT_REQUESTS) {
             concurrentRequestCount++;
             requestAndParse(uri, message);
         } else {
@@ -49,7 +51,6 @@ public class PageCrawler extends AbstractVerticle {
 
     private void requestAndParse(URI uri, Message<Object> message) {
         vertx.<Connection.Response>executeBlocking(event -> {
-            System.out.println("Crawling " + uri.toString() + " ...");
             try {
                 String decodedUrl = URLDecoder.decode(uri.toString(), "UTF-8");
                 Connection.Response response = Jsoup.connect(decodedUrl).timeout(10000).execute();
