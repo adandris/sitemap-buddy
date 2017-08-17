@@ -28,7 +28,6 @@ public class PageCrawler extends AbstractVerticle {
     public void start() {
         vertx.eventBus().consumer(Events.CRAWL_PAGE, message -> {
             String urlToCrawl = message.body().toString();
-            System.out.println("Crawling " + urlToCrawl + " ...");
             try {
                 URI uri = new URI(urlToCrawl);
 
@@ -50,9 +49,10 @@ public class PageCrawler extends AbstractVerticle {
 
     private void requestAndParse(URI uri, Message<Object> message) {
         vertx.<Connection.Response>executeBlocking(event -> {
+            System.out.println("Crawling " + uri.toString() + " ...");
             try {
                 String decodedUrl = URLDecoder.decode(uri.toString(), "UTF-8");
-                Connection.Response response = Jsoup.connect(decodedUrl).timeout(15000).execute();
+                Connection.Response response = Jsoup.connect(decodedUrl).timeout(10000).execute();
                 event.complete(response);
             } catch (Exception e) {
                 event.fail(e);
