@@ -8,7 +8,6 @@ import com.teodorstoev.sitemapbuddy.domain.PageInfo;
 import io.vertx.core.AsyncResult;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
-import io.vertx.core.VertxOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.json.JsonArray;
 import io.vertx.core.json.JsonObject;
@@ -31,6 +30,11 @@ public class EntryPoint {
     private static final String OPTION_URL = "url";
 
     private static final String OPTION_OUTPUT = "output";
+
+    /**
+     * Wait a maximum of one hour before considering sitemap creation a failure.
+     */
+    private static final long SEND_TIMEOUT = TimeUnit.HOURS.toMillis(1);
 
     public static void main(String[] args) {
         CommandLine commandLine = parseCommandLine(args);
@@ -86,10 +90,12 @@ public class EntryPoint {
 
     private static void createSitemap(Vertx vertx, String siteUrl, Consumer<JsonArray> consumer) {
         vertx.eventBus().send(Events.MAP_SITE, siteUrl,
-                new DeliveryOptions().setSendTimeout(TimeUnit.MINUTES.toMillis(10)), event -> {
+                new DeliveryOptions().setSendTimeout(SEND_TIMEOUT), event -> {
             if (event.succeeded()) {
                 JsonArray result = (JsonArray) event.result().body();
                 consumer.accept(result);
+            } else {
+                System.out.println("Failed to create a sitemap within an hour.");
             }
         });
     }

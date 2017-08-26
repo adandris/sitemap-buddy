@@ -14,7 +14,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLDecoder;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 
@@ -22,7 +22,7 @@ import java.time.format.DateTimeParseException;
  * Created by adandris on 10.05.17.
  */
 public class PageCrawler extends AbstractVerticle {
-    private static final int MAX_CONCURRENT_REQUESTS = 5;
+    private static final int MAX_CONCURRENT_REQUESTS = 8;
 
     private int concurrentRequestCount;
 
@@ -67,7 +67,6 @@ public class PageCrawler extends AbstractVerticle {
                 String baseUrl = uri.getHost();
                 parseResponseAndReply(message, baseUrl, response);
             } else {
-                event.cause().printStackTrace();
                 message.fail(1, event.cause().getMessage());
             }
         });
@@ -93,9 +92,9 @@ public class PageCrawler extends AbstractVerticle {
             String lastModifiedHeader = response.header("Last-Modified");
             if (lastModifiedHeader != null) {
                 try {
-                    LocalDateTime lastModified = LocalDateTime.parse(lastModifiedHeader, DateTimeFormatter.RFC_1123_DATE_TIME);
+                    OffsetDateTime lastModified = OffsetDateTime.parse(lastModifiedHeader, DateTimeFormatter.RFC_1123_DATE_TIME);
 
-                    pageInfo.setLastModified(lastModified.toString());
+                    pageInfo.setLastModified(lastModified.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
                 } catch (DateTimeParseException e) {
                     System.out.println("Failed to parse date '" + lastModifiedHeader + "'");
                 }

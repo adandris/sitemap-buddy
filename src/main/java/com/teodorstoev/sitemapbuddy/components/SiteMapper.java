@@ -6,17 +6,22 @@ import io.vertx.core.AbstractVerticle;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.eventbus.Message;
 import io.vertx.core.json.JsonArray;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 /**
  * Created by adandris on 10.05.17.
  */
 public class SiteMapper extends AbstractVerticle {
+    private static final Logger logger = LogManager.getLogger(SiteMapper.class.getName());
+
     /**
-     * Wait up to 5 minutes for a message reply.
+     * Wait up to 10 minutes for a message reply.
      */
-    private static final int SEND_TIMEOUT = 5 * 60 * 1000;
+    private static final long SEND_TIMEOUT = TimeUnit.MINUTES.toMillis(10);
 
     private Map<String, PageInfo> pages = new HashMap<>();
 
@@ -42,7 +47,8 @@ public class SiteMapper extends AbstractVerticle {
 
                 if (urlsToCrawl.peek() == null) {
                     if (pendingUrls.size() == 0) {
-                        pages.values().forEach(page -> page.setPriority((double) pageHits.get(page.getUrl()) / totalHits));
+                        calculatePriority();
+
                         message.reply(new JsonArray(new ArrayList<>(pages.values())));
                     }
                 } else {
@@ -50,6 +56,16 @@ public class SiteMapper extends AbstractVerticle {
                 }
             });
         });
+    }
+
+    private void calculatePriority() {
+        final int maxElement = Collections.max(pageHits.values());
+        double orderOfMagnitude = 1.0;
+        while (maxElement * orderOfMagnitude / totalHits < 0.1) {
+            orderOfMagnitude *= 10.0;
+        }
+        final double factor = orderOfMagnitude;
+        pages.values().forEach(page -> page.setPriority((double) pageHits.get(page.getUrl()) * factor / totalHits));
     }
 
     private void crawl() {
@@ -78,7 +94,7 @@ public class SiteMapper extends AbstractVerticle {
 
                             crawlChildren(pageInfo);
                         } else {
-                            System.out.println(url + ": " + event.cause().getMessage());
+                            logger.error(url + ": " + event.cause().getMessage());
                         }
                     });
         }
