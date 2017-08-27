@@ -1,6 +1,7 @@
 package com.teodorstoev.sitemapbuddy.components;
 
 import com.teodorstoev.sitemapbuddy.domain.Events;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Vertx;
 import io.vertx.core.json.JsonObject;
 import io.vertx.ext.unit.Async;
@@ -22,7 +23,9 @@ public class PageCrawlerTest {
 
     @Before
     public void setUp() {
-        rule.vertx().deployVerticle(new PageCrawler());
+        DeploymentOptions pageCrawlerConfig = new DeploymentOptions().setConfig(new JsonObject().put("concurrency", 1));
+
+        rule.vertx().deployVerticle(new PageCrawler(), pageCrawlerConfig);
     }
 
     @Test

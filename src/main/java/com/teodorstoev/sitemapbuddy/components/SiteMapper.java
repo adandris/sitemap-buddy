@@ -19,9 +19,9 @@ public class SiteMapper extends AbstractVerticle {
     private static final Logger logger = LogManager.getLogger(SiteMapper.class.getName());
 
     /**
-     * Wait up to 10 minutes for a message reply.
+     * Wait up to 20 minutes for a message reply.
      */
-    private static final long SEND_TIMEOUT = TimeUnit.MINUTES.toMillis(10);
+    private static final long SEND_TIMEOUT = TimeUnit.MINUTES.toMillis(20);
 
     private Map<String, PageInfo> pages = new HashMap<>();
 

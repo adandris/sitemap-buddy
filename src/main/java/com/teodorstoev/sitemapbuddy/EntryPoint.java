@@ -6,6 +6,7 @@ import com.teodorstoev.sitemapbuddy.domain.Events;
 import com.teodorstoev.sitemapbuddy.domain.OutputXml;
 import com.teodorstoev.sitemapbuddy.domain.PageInfo;
 import io.vertx.core.AsyncResult;
+import io.vertx.core.DeploymentOptions;
 import io.vertx.core.Handler;
 import io.vertx.core.Vertx;
 import io.vertx.core.eventbus.DeliveryOptions;
@@ -31,6 +32,10 @@ public class EntryPoint {
 
     private static final String OPTION_OUTPUT = "output";
 
+    private static final String OPTION_CONCURRENCY = "concurrency";
+
+    private static final int DEFAULT_CONCURRENCY = 8;
+
     /**
      * Wait a maximum of one hour before considering sitemap creation a failure.
      */
@@ -44,10 +49,12 @@ public class EntryPoint {
 
         String siteUrl = commandLine.getOptionValue(OPTION_URL);
         String path = commandLine.getOptionValue(OPTION_OUTPUT);
+        int concurrency = commandLine.hasOption(OPTION_CONCURRENCY) ? Integer.parseInt(
+                commandLine.getOptionValue(OPTION_CONCURRENCY)) : DEFAULT_CONCURRENCY;
 
         Vertx vertx = Vertx.vertx();
 
-        deployVerticles(vertx, onDeploy -> createSitemap(vertx, siteUrl, sitemap -> {
+        deployVerticles(vertx, concurrency, onDeploy -> createSitemap(vertx, siteUrl, sitemap -> {
             List<PageInfo> urlSet = new ArrayList<>(sitemap.size());
             sitemap.forEach(o -> urlSet.add(new PageInfo((JsonObject) o)));
 
@@ -71,6 +78,11 @@ public class EntryPoint {
         output.setRequired(true);
         options.addOption(output);
 
+        Option concurrency = new Option(OPTION_CONCURRENCY.substring(0, 1), OPTION_CONCURRENCY, true,
+                "Max number of concurrent requests (default 8)");
+        concurrency.setRequired(false);
+        options.addOption(concurrency);
+
         CommandLineParser parser = new DefaultParser();
         HelpFormatter formatter = new HelpFormatter();
 
@@ -83,14 +95,16 @@ public class EntryPoint {
         }
     }
 
-    private static void deployVerticles(Vertx vertx, Handler<AsyncResult<String>> onDeploy) {
-        vertx.deployVerticle(new PageCrawler(),
-                onPageCrawlerDeploy -> vertx.deployVerticle(new SiteMapper(), onDeploy));
+    private static void deployVerticles(Vertx vertx, int concurrency, Handler<AsyncResult<String>> onDeploy) {
+        DeploymentOptions pageCrawlerConfig = new DeploymentOptions().setConfig(new JsonObject().put("concurrency",
+                concurrency));
+
+        vertx.deployVerticle(new PageCrawler(), pageCrawlerConfig, onPageCrawlerDeploy -> vertx.deployVerticle(
+                new SiteMapper(), onDeploy));
     }
 
     private static void createSitemap(Vertx vertx, String siteUrl, Consumer<JsonArray> consumer) {
-        vertx.eventBus().send(Events.MAP_SITE, siteUrl,
-                new DeliveryOptions().setSendTimeout(SEND_TIMEOUT), event -> {
+        vertx.eventBus().send(Events.MAP_SITE, siteUrl, new DeliveryOptions().setSendTimeout(SEND_TIMEOUT), event -> {
             if (event.succeeded()) {
                 JsonArray result = (JsonArray) event.result().body();
                 consumer.accept(result);
@@ -106,8 +120,8 @@ public class EntryPoint {
 
             Marshaller marshaller = context.createMarshaller();
             marshaller.setProperty(Marshaller.JAXB_FORMATTED_OUTPUT, true);
-            marshaller.setProperty(Marshaller.JAXB_SCHEMA_LOCATION,
-                    "http://www.sitemaps.org/schemas/sitemap/0.9 http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd");
+            marshaller.setProperty(Marshaller.JAXB_SCHEMA_LOCATION, "http://www.sitemaps.org/schemas/sitemap/0.9 " +
+                    "http://www.sitemaps.org/schemas/sitemap/0.9/sitemap.xsd");
             marshaller.marshal(outputXml, new File(path));
 
             callback.run();

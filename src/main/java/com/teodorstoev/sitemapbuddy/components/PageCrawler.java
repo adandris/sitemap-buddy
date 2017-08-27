@@ -22,12 +22,14 @@ import java.time.format.DateTimeParseException;
  * Created by adandris on 10.05.17.
  */
 public class PageCrawler extends AbstractVerticle {
-    private static final int MAX_CONCURRENT_REQUESTS = 8;
+    private int maxConcurrentRequests;
 
     private int concurrentRequestCount;
 
     @Override
     public void start() {
+        maxConcurrentRequests = config().getInteger("concurrency");
+
         vertx.eventBus().consumer(Events.CRAWL_PAGE, message -> {
             String urlToCrawl = message.body().toString();
             try {
@@ -41,7 +43,7 @@ public class PageCrawler extends AbstractVerticle {
     }
 
     private void executeNowOrLater(Message<Object> message, URI uri) {
-        if (concurrentRequestCount < MAX_CONCURRENT_REQUESTS) {
+        if (concurrentRequestCount < maxConcurrentRequests) {
             concurrentRequestCount++;
             requestAndParse(uri, message);
         } else {
@@ -92,7 +94,8 @@ public class PageCrawler extends AbstractVerticle {
             String lastModifiedHeader = response.header("Last-Modified");
             if (lastModifiedHeader != null) {
                 try {
-                    OffsetDateTime lastModified = OffsetDateTime.parse(lastModifiedHeader, DateTimeFormatter.RFC_1123_DATE_TIME);
+                    OffsetDateTime lastModified = OffsetDateTime.parse(lastModifiedHeader,
+                            DateTimeFormatter.RFC_1123_DATE_TIME);
 
                     pageInfo.setLastModified(lastModified.format(DateTimeFormatter.ISO_OFFSET_DATE_TIME));
                 } catch (DateTimeParseException e) {
